@@ -13,7 +13,7 @@ import util
 import argparse
 
 
-def getArgs():
+def get_args():
     parser = argparse.ArgumentParser(description='DiskStation CLI')
     parser.add_argument('address',
                         help='Server address with IP/domain name and port \
@@ -25,7 +25,7 @@ def getArgs():
 
 
 def main():
-    args = getArgs()
+    args = get_args()
     address = args.address
 
     api_info_params = {'query': 'SYNO.API.Auth,SYNO.DownloadStation.Task'}

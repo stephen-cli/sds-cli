@@ -18,7 +18,7 @@ def getArgs():
     parser.add_argument('address',
                         help='Server address with IP/domain name and port \
                             (e.g. myds.com:5000)')
-    parser.add_argument('--username',
+    parser.add_argument('-u', '--username',
                         help='User to log in as')
 
     return parser.parse_args()
@@ -51,7 +51,9 @@ def main():
 
     sid = login['data']['sid']
 
-    print(sid)
+    list = util.request(address, 'dsTask', 'list', {}, {'id': sid})
+
+    print(list)
 
     util.request(address, 'auth', 'logout',  {'session': 'DownloadStation'})
 

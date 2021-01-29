@@ -28,7 +28,7 @@ def update(api, response, api_name):
     })
 
 
-def request(address, api, method, params):
+def request(address, api, method, params={}, cookies={}):
     api_path = apis.get(api).get('path')
 
     url = f'http://{address}/webapi/{api_path}'
@@ -40,7 +40,7 @@ def request(address, api, method, params):
     }
 
     try:
-        response_obj = requests.get(url, params)
+        response_obj = requests.get(url, params=params, cookies=cookies)
 
         try:
             response = response_obj.json()

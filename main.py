@@ -2,7 +2,7 @@
 
 """Synology DiskStation CLI Tool
 
-A CLI that can be used to control a Synology NAS on your network.
+A CLI that can be used to interact with a Synology NAS on your network.
 Synology APIs used:
 - Base API
 - Synology Download Station API

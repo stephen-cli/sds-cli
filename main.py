@@ -28,27 +28,27 @@ def get_args():
 
     subparsers.add_parser('get-config', help='Returns Download Station config')
 
-    parser_get_task = subparsers.add_parser('get-tasks',
-                                            help='Provides task listing and \
-                                                  detailed task information')
-    parser_get_task.add_argument('-i', '--id',
-                                 type=str,
-                                 help='Task IDs, separated by ",". Cannot be \
-                                       used with --offset or --limit.')
-    parser_get_task.add_argument('-o', '--offset',
-                                 type=int,
-                                 help='Beginning task on the request record. \
-                                       Default to "0". Cannot be used with \
-                                       --id.')
-    parser_get_task.add_argument('-l', '--limit',
-                                 type=int,
-                                 help='Number of records requested. Default \
-                                       to list all tasks. Cannot be used with \
-                                       --id.')
-    parser_get_task.add_argument('-d', '--detail',
-                                 action=argparse.BooleanOptionalAction)
-    parser_get_task.add_argument('-t', '--transfer',
-                                 action=argparse.BooleanOptionalAction)
+    parser_get_tasks = subparsers.add_parser('get-tasks',
+                                             help='Provides task listing and \
+                                                   detailed task information')
+    parser_get_tasks.add_argument('-i', '--id',
+                                  type=str,
+                                  help='Task IDs, separated by ",". Cannot be \
+                                        used with --offset or --limit.')
+    parser_get_tasks.add_argument('-o', '--offset',
+                                  type=int,
+                                  help='Beginning task on the request record. \
+                                        Default to "0". Cannot be used with \
+                                        --id.')
+    parser_get_tasks.add_argument('-l', '--limit',
+                                  type=int,
+                                  help='Number of records requested. Default \
+                                        to list all tasks. Cannot be used \
+                                        with --id.')
+    parser_get_tasks.add_argument('-d', '--detail',
+                                  action=argparse.BooleanOptionalAction)
+    parser_get_tasks.add_argument('-t', '--transfer',
+                                  action=argparse.BooleanOptionalAction)
 
     return parser.parse_args()
 

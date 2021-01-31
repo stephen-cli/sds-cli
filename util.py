@@ -20,6 +20,17 @@ apis = {
 
 
 def update(api, response, api_name):
+    """Update the list of known Synology APIs
+
+    The first parameter should be the key that will be used to refer to
+    the API when making requests
+
+    The second parmeter should be the response received from the
+    DiskStation Info API
+
+    The third paremeter should be the actual name of the API as it is
+    recognised by the DiskStation endpoints
+    """
     apis.update({
         api: {
             'name': api_name,
@@ -30,6 +41,7 @@ def update(api, response, api_name):
 
 
 def request(address, api, method, params={}, cookies={}):
+    """Makes a request to the DiskStation API"""
     api_path = apis.get(api).get('path')
 
     url = f'http://{address}/webapi/{api_path}'
@@ -71,26 +83,61 @@ def format_field_names(dict):
     return formatted_dict
 
 
-def tabulate(data):
-    if isinstance(data, list):
-        all_keys = frozenset().union(*data)
-        new_list = [[]]
+def tabulate_dictionary(data, filter):
+    all_keys = frozenset().union(*data)
+    new_list = [[]]
 
-        for key in sorted(all_keys):
-            field_name = key.replace('_', ' ').title()
-            new_list[0].append(field_name)
+    # Determine if results can/should be filtered
+    filter_results = False
+    if filter:
+        if filter[0].replace(' ', '_').lower() in all_keys:
+            filter_results = True
+        else:
+            key = filter[0].replace('_', ' ').title()
+            print(f'[{key}] isn\'t a column')
 
-        for object in data:
-            for key in all_keys:
-                if key not in object:
-                    object[key] = {}
-            formatted_object = format_field_names(object)
+    # Assign the first index of the list to a list of the columns
+    for key in sorted(all_keys):
+        field_name = key.replace('_', ' ').title()
+        new_list[0].append(field_name)
+
+    # Populate the list with rows
+    for object in data:
+        for key in all_keys:
+            if key not in object:
+                object[key] = {}
+        formatted_object = format_field_names(object)
+
+        if filter_results:
+            filter_key = filter[0].replace('_', ' ').title()
+            filter_val = filter[1]
+            if filter_val in str(formatted_object[filter_key]):
+                new_list.append(formatted_object)
+        else:
             new_list.append(formatted_object)
-        table = prettytable.from_json(json.dumps(new_list))
-        return table
+
+    return prettytable.from_json(json.dumps(new_list))
+
+
+def tabulate_list(data):
+    table = PrettyTable()
+    formatted_data = format_field_names(data)
+    for key, value in formatted_data.items():
+        table.add_column(key, [value])
+    return table
+
+
+def tabulate(data, filter={}):
+    """Returns a table representing the passed data
+
+    Can take a list of dictionaries for a multirow table or a single
+    dictionary for a singlerow table
+
+    A filter parameter can be provided - this should contain a column to
+    filter by, and the value to find in the column. Filters are ignored
+    when passed a dict instead of a list
+    """
+    if isinstance(data, list):
+        return tabulate_dictionary(data, filter)
     else:
-        table = PrettyTable()
-        formatted_data = format_field_names(data)
-        for key, value in formatted_data.items():
-            table.add_column(key, [value])
-        return table
+        return tabulate_list(data)

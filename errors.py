@@ -6,16 +6,19 @@ messages back to the user.
 
 import sys
 
+verbose = False
+
 
 def handle_error(code, api):
-    if api == 'dsInfo':
-        full_api_name = 'Disk Station Info'
-    if api == 'dsTask':
-        full_api_name = 'Disk Station Task'
-    else:
-        full_api_name = api.title()
-    if api:
-        print(f'Error in {full_api_name} request')
+    if verbose:
+        if api == 'dsInfo':
+            full_api_name = 'Disk Station Info'
+        if api == 'dsTask':
+            full_api_name = 'Disk Station Task'
+        else:
+            full_api_name = api.title()
+        if api:
+            print(f'Error in {full_api_name} request')
 
     if code == 100:
         print('Unknown error')

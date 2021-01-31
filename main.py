@@ -10,15 +10,22 @@ Synology APIs used:
 
 from getpass import getpass
 import util
+import errors
 import argparse
 
 
 def get_args():
     parser = argparse.ArgumentParser(description='DiskStation CLI')
-    parser.add_argument('address', help='Server address with IP/domain name \
-                                         and port (e.g. myds.com:5000)')
+    parser.add_argument('address', help=('Server address with IP/domain name'
+                                         'and port (e.g. myds.com:5000)'))
 
-    parser.add_argument('-u', '--username', help='User to log in as')
+    parser.add_argument('--username', '-u',
+                        help='User to log in as',
+                        metavar='<username>')
+
+    parser.add_argument('--verbose', '-v',
+                        action=argparse.BooleanOptionalAction,
+                        help='Verbose error logging')
 
     subparsers = parser.add_subparsers(title='commands',
                                        dest='command',
@@ -28,33 +35,52 @@ def get_args():
 
     subparsers.add_parser('get-config', help='Returns Download Station config')
 
-    parser_get_tasks = subparsers.add_parser('get-tasks',
-                                             help='Provides task listing and \
-                                                   detailed task information')
-    parser_get_tasks.add_argument('-i', '--id',
-                                  type=str,
-                                  help='Task IDs, separated by ",". Cannot be \
-                                        used with --offset or --limit.')
-    parser_get_tasks.add_argument('-o', '--offset',
-                                  type=int,
-                                  help='Beginning task on the request record. \
-                                        Default to "0". Cannot be used with \
-                                        --id.')
-    parser_get_tasks.add_argument('-l', '--limit',
-                                  type=int,
-                                  help='Number of records requested. Default \
-                                        to list all tasks. Cannot be used \
-                                        with --id.')
-    parser_get_tasks.add_argument('-d', '--detail',
-                                  action=argparse.BooleanOptionalAction)
-    parser_get_tasks.add_argument('-t', '--transfer',
-                                  action=argparse.BooleanOptionalAction)
+    parser_gt = subparsers.add_parser('get-tasks',
+                                      help=('Provides task listing and '
+                                            'detailed task information'))
+    parser_gt.add_argument('--id', '-i',
+                           type=str,
+                           help=('Task IDs, separated by ",". Cannot be used '
+                                 'with --offset or --limit.'),
+                           metavar='<id>')
+    parser_gt.add_argument('--detail', '-d',
+                           action=argparse.BooleanOptionalAction)
+    parser_gt.add_argument('--transfer', '-t',
+                           action=argparse.BooleanOptionalAction)
+    parser_gt.add_argument('--offset', '-o',
+                           type=int,
+                           help=('Beginning task on the request record. '
+                                 'Default to "0". Ignored when --id is '
+                                 'passed.'),
+                           metavar='<offset>')
+    parser_gt.add_argument('--limit', '-l',
+                           type=int,
+                           help=('Number of records requested. Default to '
+                                 'list all tasks. Ignored when --id is '
+                                 'passed.'),
+                           metavar='<limit>')
+    parser_gt.add_argument('--filter', '-f',
+                           nargs=2,
+                           type=str,
+                           help=('Displays results where the passed value is '
+                                 'found in the given field. Ignored when --id '
+                                 'is passed.\n(Note: --filter is applied '
+                                 'AFTER --offset and --limit)'),
+                           metavar=('<field>', '<value>'))
+    parser_gt.add_argument('--sort', '-s',
+                           nargs=2,
+                           type=str,
+                           help=('Orders rows according to the values of the '
+                                 'specified column. Ignored when --id is '
+                                 'passed.'),
+                           metavar=('<field>', '[desc|asc]'))
 
     return parser.parse_args()
 
 
 def main():
     args = get_args()
+    errors.verbose = args.verbose
     address = args.address
 
     api_info_params = {
@@ -113,9 +139,25 @@ def main():
                 task_info_params['offset'] = args.offset
             if args.limit:
                 task_info_params['limit'] = args.limit
+
             task_list = util.request(address, 'dsTask', 'list',
                                      task_info_params, {'id': sid})
-            task_list_table = util.tabulate(task_list['data']['tasks'])
+            task_list_table = util.tabulate(task_list['data']['tasks'],
+                                            args.filter)
+
+            if args.sort:
+                column = args.sort[0].replace('_', ' ').title()
+                sort = args.sort[1]
+                if sort != 'desc' and sort != 'asc':
+                    print((f'[{sort}] isn\'t a valid sort option. Specify '
+                           '[desc] or [asc]'))
+                else:
+                    task_list_table.reversesort = sort == 'desc'
+                    try:
+                        task_list_table.sortby = column
+                    except Exception:
+                        print(f'[{column}] isn\'t a column')
+
             print(task_list_table)
 
     util.request(address, 'auth', 'logout',  {'session': 'DownloadStation'})

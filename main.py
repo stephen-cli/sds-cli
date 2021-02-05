@@ -9,9 +9,10 @@ Synology APIs used:
 """
 
 from getpass import getpass
+import sys
+import argparse
 import util
 import errors
-import argparse
 
 
 def get_args():
@@ -22,10 +23,13 @@ def get_args():
     parser.add_argument('--username', '-u',
                         help='User to log in as',
                         metavar='<username>')
-
     parser.add_argument('--verbose', '-v',
                         action=argparse.BooleanOptionalAction,
                         help='Verbose error logging')
+    parser.add_argument('--human-readable', '-H',
+                        action=argparse.BooleanOptionalAction,
+                        help=('Print sizes like 1 KB, 234 MB, 2 GB etc. and '
+                              'timestamps like 5 hours 54 minutes 1 second'))
 
     subparsers = parser.add_subparsers(title='commands',
                                        dest='command',
@@ -75,6 +79,36 @@ def get_args():
                                  'passed.'),
                            metavar=('<field>', '[desc|asc]'))
 
+    parser_ct = subparsers.add_parser('create-task',
+                                      help=('Creates a task'))
+    parser_ct.add_argument('--uri', '-U',
+                           type=str,
+                           help=('Accepts HTTP/FTP/magnet/ED2K links or the '
+                                 'file path starting with a shared folder, '
+                                 'separated by ","'),
+                           metavar='<address>')
+    # parser_ct.add_argument('--file', '-f',
+    #                        type=str,
+    #                        help='File uploading from client',
+    #                        metavar='<file>')
+    parser_ct.add_argument('--username', '-u',
+                           type=str,
+                           help='Login username',
+                           metavar='<username>')
+    parser_ct.add_argument('--password', '-p',
+                           type=str,
+                           help='Login password',
+                           metavar='<password>')
+    parser_ct.add_argument('--unzip-password', '-z',
+                           type=str,
+                           help='Password for unzipping download tasks',
+                           metavar='<unzip_password>')
+    parser_ct.add_argument('--destination', '-d',
+                           type=str,
+                           help=('Download destination path starting with a '
+                                 'shared folder'),
+                           metavar='<destination>')
+
     return parser.parse_args()
 
 
@@ -115,11 +149,11 @@ def main():
         info = util.request(address, 'dsInfo', 'getinfo', {}, {'id': sid})
         info_table = util.tabulate(info['data'])
         print(info_table)
-    if args.command == 'get-config':
+    elif args.command == 'get-config':
         config = util.request(address, 'dsInfo', 'getconfig', {}, {'id': sid})
         config_table = util.tabulate(config['data'])
         print(config_table)
-    if args.command == 'get-tasks':
+    elif args.command == 'get-tasks':
         task_info_params = {
             'id': args.id,
             'additional': ''
@@ -132,6 +166,12 @@ def main():
         if args.id:
             task_info = util.request(address, 'dsTask', 'getinfo',
                                      task_info_params, {'id': sid})
+
+            if args.human_readable:
+                size = task_info['data']['tasks']['size']
+                size = util.readable_storage(size)
+                task_info['data']['tasks']['size'] = size
+
             task_info_table = util.tabulate(task_info['data']['tasks'])
             print(task_info_table)
         else:
@@ -142,8 +182,18 @@ def main():
 
             task_list = util.request(address, 'dsTask', 'list',
                                      task_info_params, {'id': sid})
-            task_list_table = util.tabulate(task_list['data']['tasks'],
-                                            args.filter)
+
+            if args.human_readable:
+                for task in task_list['data']['tasks']:
+                    task['size'] = util.readable_storage(task['size'])
+
+            if args.detail or args.transfer:
+                tasks = util.get_additional_columns(task_list['data']['tasks'],
+                                                    args)
+                task_list_table = util.tabulate(tasks, args.filter)
+            else:
+                task_list_table = util.tabulate(task_list['data']['tasks'],
+                                                args.filter)
 
             if args.sort:
                 column = args.sort[0].replace('_', ' ').title()
@@ -159,6 +209,26 @@ def main():
                         print(f'[{column}] isn\'t a column')
 
             print(task_list_table)
+    elif args.command == 'create-task':
+        params = {}
+        if args.uri:
+            params['uri'] = args.uri
+        # elif args.file:
+        #     params['file'] = args.file
+        else:
+            # print('specify uri or file')
+            print('specify uri')
+            sys.exit()
+        if args.username:
+            params['username'] = args.username
+        if args.password:
+            params['password'] = args.password
+        if args.unzip_password:
+            params['unzip_password'] = args.unzip_password
+        if args.destination:
+            params['destination'] = args.destination
+
+        util.request(address, 'dsTask', 'create', params, {'id': sid})
 
     util.request(address, 'auth', 'logout',  {'session': 'DownloadStation'})
 

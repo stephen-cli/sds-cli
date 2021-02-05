@@ -4,11 +4,14 @@ This module contains utility functions for making API requests and
 updating a dictionary of information for the usage of the Synology APIs.
 """
 
-from prettytable import prettytable, PrettyTable
+from datetime import datetime
+import urllib.parse
 import sys
+import json
+import math
+from prettytable import prettytable, PrettyTable
 import requests
 import errors
-import json
 
 apis = {
     'info': {
@@ -45,12 +48,15 @@ def request(address, api, method, params={}, cookies={}):
     api_path = apis.get(api).get('path')
 
     url = f'http://{address}/webapi/{api_path}'
-    params = {
-        'api': apis.get(api).get('name'),
-        'version': apis.get(api).get('version'),
-        'method': method,
-        **params
-    }
+    params = urllib.parse.urlencode(
+        {
+            'api': apis.get(api).get('name'),
+            'version': apis.get(api).get('version'),
+            'method': method,
+            **params
+        },
+        quote_via=urllib.parse.quote
+    )
 
     try:
         response_obj = requests.get(url, params=params, cookies=cookies)
@@ -141,3 +147,88 @@ def tabulate(data, filter={}):
         return tabulate_dictionary(data, filter)
     else:
         return tabulate_list(data)
+
+
+def readable_storage(bytes):
+    unit = 'GB'
+    size = bytes / 1.074e+9
+    if size < 1:
+        unit = 'MB'
+        size = bytes / 1.049e+6
+    if size < 1:
+        unit = 'KB'
+        size = bytes / 1024
+    if size < 1:
+        unit = 'B'
+        size = bytes
+    return f'{round(size, 2)} {unit}'
+
+
+def format_date(timestamp):
+    if timestamp == 0:
+        timestamp = ''
+    else:
+        dt = datetime.fromtimestamp(timestamp)
+        timestamp = dt.strftime('%Y/%m/%d %H:%M:%S')
+    return timestamp
+
+
+def format_time(totalSeconds):
+    time = ''
+    totalMinutes = math.trunc(totalSeconds / 60)
+    totalHours = math.trunc(totalMinutes / 60)
+    totalDays = math.trunc(totalHours / 24)
+
+    if totalDays > 0:
+        days = totalDays
+        daysPlural = '' if days == 1 else 's'
+        time += f'{days} day{daysPlural} '
+
+    if totalHours > 0:
+        hours = totalHours % 24
+        hoursPlural = '' if hours == 1 else 's'
+        time += f'{hours} hour{hoursPlural} '
+
+    if totalMinutes > 0:
+        minutes = totalMinutes % 60
+        minutesPlural = '' if minutes == 1 else 's'
+        time += f'{minutes} minute{minutesPlural} '
+
+    seconds = totalSeconds % 60
+    if seconds > 0 or totalSeconds == 0:
+        secondsPlural = '' if seconds == 1 else 's'
+        time += f'{seconds} second{secondsPlural}'
+
+    return time
+
+
+def get_additional_columns(tasks, args):
+    processed_tasks = []
+    for task in tasks:
+        if args.detail:
+            for key, value in task['additional']['detail'].items():
+                task[key] = value
+        if args.transfer:
+            for key, value in task['additional']['transfer'].items():
+                task[key] = value
+        for key in list(task.keys()):
+            if key == 'additional':
+                del task[key]
+
+        if args.detail:
+            task['completed_time'] = format_date(task['completed_time'])
+            task['create_time'] = format_date(task['create_time'])
+            task['started_time'] = format_date(task['started_time'])
+            if args.human_readable:
+                task['seedelapsed'] = format_time(task['seedelapsed'])
+
+        if args.human_readable and args.transfer:
+            task['size_downloaded'] = readable_storage(task['size_downloaded'])
+            task['size_uploaded'] = readable_storage(task['size_uploaded'])
+            speed_download = readable_storage(task['speed_download'])
+            task['speed_download'] = f'{speed_download}/s'
+            speed_upload = readable_storage(task['speed_upload'])
+            task['speed_upload'] = f'{speed_upload}/s'
+
+        processed_tasks.append(task)
+    return processed_tasks
